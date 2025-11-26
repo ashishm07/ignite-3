@@ -48,7 +48,7 @@ public class MapperExample {
         ) {
             RecordView<Person> view = client.tables()
                     .table("person")
-                    .recordView(mapper);
+                        .recordView(mapper);
 
 
             Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");

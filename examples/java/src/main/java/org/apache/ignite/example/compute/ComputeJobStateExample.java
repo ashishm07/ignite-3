@@ -28,6 +28,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle failures.
@@ -77,8 +78,9 @@ public class ComputeJobStateExample {
             System.out.println("\nConfiguring compute job...");
 
             CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
-                    JobDescriptor.builder(WordPrintJob.class).build(), null
+                    JobDescriptor.builder(WordPrintJob.class).units(new DeploymentUnit("computeExampleUnit","1.0.0")).build(), null
             );
+
 
             execution.get().stateAsync().thenApply(state -> {
                 if (state.status() == FAILED) {

@@ -138,7 +138,7 @@ public final class IgniteNameUtils {
 
     /** An {@code identifier extend} is U+00B7, or any character in the Unicode General Category classes "Mn", "Mc", "Nd", "Pc", or "Cf".*/
     private static boolean identifierExtend(int codePoint) {
-        return codePoint == ('·' & 0xff) /* "Middle Dot" character */
+        return codePoint == (0x00B7) /* "Middle Dot" character */
                 || ((((1 << Character.NON_SPACING_MARK)
                 | (1 << Character.COMBINING_SPACING_MARK)
                 | (1 << Character.DECIMAL_DIGIT_NUMBER)

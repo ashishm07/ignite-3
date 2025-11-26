@@ -53,7 +53,7 @@ public class ClientConnectorConfigurationSchema {
 
     /** Server exception stack trace visibility. */
     @Value(hasDefault = true)
-    public final boolean sendServerExceptionStackTraceToClient = false;
+    public final boolean sendServerExceptionStackTraceToClient = true;
 
     /** SSL configuration schema. */
     @ConfigValue

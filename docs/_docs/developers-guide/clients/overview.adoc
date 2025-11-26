@@ -35,7 +35,7 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
       "metricsEnabled" : false,
       "name" : "client_1",
       "port" : 10800,
-      "sendServerExceptionStackTraceToClient" : false,
+      "sendServerExceptionStackTraceToClient" : true,
       "ssl" : {
         "ciphers" : "",
         "clientAuth" : "none",

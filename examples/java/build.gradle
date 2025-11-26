@@ -14,6 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group = 'org.apache.ignite'
+version = '1.0.0'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            groupId = 'org.apache.ignite'
+            artifactId = 'ai3-examples'
+            version = '1.0.0'
+        }
+    }
+}
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
@@ -23,6 +41,7 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 description = 'ignite-examples'
 
 dependencies {
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
     implementation project(':ignite-runner')
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')

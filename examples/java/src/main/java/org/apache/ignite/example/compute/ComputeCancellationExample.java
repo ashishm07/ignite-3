@@ -54,7 +54,7 @@ import org.apache.ignite.lang.CancellationToken;
  */
 public class ComputeCancellationExample {
     /** Deployment unit name. */
-    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
+    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit11";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";

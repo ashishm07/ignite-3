@@ -18,12 +18,15 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.buildJar;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnitIfNeeded;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
@@ -60,12 +63,20 @@ public class ComputeAsyncExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
+    private static final Path PROJECT_ROOT = Paths.get("").toAbsolutePath();
+    private static final Path CLASSES_DIR = Paths.get("C:/Users/ashis/git/ignite-3/examples/java/build/classes/java/main");
+    private static final Path JAR_PATH = Paths.get("C:/Users/ashis/git/ignite-3/examples/java/my-job-unit.jar");
+
     /**
      * Main method of the example.
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
+
+        buildJar(CLASSES_DIR, JAR_PATH);
+        deployUnitIfNeeded(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
