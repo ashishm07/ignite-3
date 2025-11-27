@@ -19,6 +19,7 @@ package org.apache.ignite.example.serialization;
 
 import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
 import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,7 +34,6 @@ public class SerializationExample {
     private static final String DEPLOYMENT_UNIT_AUTO = "pojoAutoSerializationExampleUnit";
     private static final String DEPLOYMENT_UNIT_TUPLE = "tupleSerializationExampleUnit";
     private static final String VERSION = "1.0.0";
-    private static final String BASE_URL = "http://localhost:10300";   // REST endpoint
     private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
     private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
     private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
@@ -87,6 +87,15 @@ public class SerializationExample {
                 System.out.println(" Deployment completed runPojoCustomJsonSerialization.");
             }
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
+
+        } finally {
+
+            System.out.println("Cleaning up resources...");
+            undeployUnit(DEPLOYMENT_UNIT_CUSTOM, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_AUTO, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_NATIVE, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_TUPLE, VERSION);
+
 
         }
     }

@@ -17,8 +17,17 @@
 
 package org.apache.ignite.example.streaming;
 
+import static java.sql.DriverManager.getConnection;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +40,7 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -49,11 +59,26 @@ public class DistributedComputeWithReceiverExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
-    public static void main(String[] arg) {
+    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
+    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
+    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
+
+    public static void main(String[] arg) throws Exception {
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
+
+            DeployComputeUnit.buildJar(CLASSES_DIR, JAR_PATH);
+
+//            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             /* Source data is a list of financial transactions */
             /* We distribute this processing across the cluster, then gather and return results */
@@ -77,7 +102,6 @@ public class DistributedComputeWithReceiverExample {
                     .primaryKey("id")
                     .build();
 
-            client.catalog().dropTable("tx_dummy");
             Table dummyTable = client.catalog().createTable(txDummyTableDef);
 
 
@@ -127,6 +151,24 @@ public class DistributedComputeWithReceiverExample {
             }
 
             streamerFut.join();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+            /* Drop table */
+            System.out.println("\nDropping the table...");
+            try (
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE IF EXISTS tx_dummy");
+            }
+
         }
     }
 

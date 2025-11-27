@@ -111,4 +111,30 @@ public class DeployComputeUnit {
             throw new RuntimeException("Deployment failed: " + resp.statusCode() + "\n" + resp.body());
         }
     }
+
+    public static void undeployUnit(String unitId, String version) throws Exception {
+        // Call Ignite REST undeploy API
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(new URI(BASE_URL + "/management/v1/deployment/units/" + unitId + "/" + version))
+                .DELETE()
+                .build();
+
+        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+
+        if (resp.statusCode() != 200 && resp.statusCode() != 404) {
+            throw new RuntimeException("Undeploy failed: " + resp.statusCode() + "\n" + resp.body());
+        }
+
+        // Poll until gone
+        for (int i = 0; i < 10; i++) {
+            if (!deploymentExists(unitId, version)) {
+                System.out.println("Unit successfully undeployed.");
+                return;
+            }
+            Thread.sleep(300);
+        }
+
+        throw new RuntimeException("Undeploy timeout — unit still present.");
+    }
+
 }
