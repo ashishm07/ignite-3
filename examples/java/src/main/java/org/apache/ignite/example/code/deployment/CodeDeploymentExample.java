@@ -17,11 +17,9 @@ public class CodeDeploymentExample {
 
     private static final DeploymentUnit DEPLOYMENT_UNIT = new DeploymentUnit(UNIT_NAME, UNIT_VERSION);
 
-    private static final Path BASE_DIR = Paths.get(System.getProperty("user.dir"));
-
-    private static final Path CLASSES_DIR = BASE_DIR.resolve("build/classes/java/main");
-    private static final Path JAR_PATH = BASE_DIR.resolve("my-job-unit.jar");
-
+    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
+    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
+    private static final Path JAR_PATH = Path.of("build/libs/codeDeploymentExampleUnit-1.0.0.jar"); // Output jar
 
     public static void main(String[] args) throws Exception {
 

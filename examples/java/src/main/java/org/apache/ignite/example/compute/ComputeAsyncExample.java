@@ -63,9 +63,9 @@ public class ComputeAsyncExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
-    private static final Path PROJECT_ROOT = Paths.get("").toAbsolutePath();
-    private static final Path CLASSES_DIR = Paths.get("C:/Users/ashis/git/ignite-3/examples/java/build/classes/java/main");
-    private static final Path JAR_PATH = Paths.get("C:/Users/ashis/git/ignite-3/examples/java/my-job-unit.jar");
+    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
+    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
+    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
 
     /**
      * Main method of the example.
