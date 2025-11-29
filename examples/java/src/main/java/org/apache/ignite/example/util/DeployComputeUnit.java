@@ -9,10 +9,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
-import org.apache.ignite.deployment.DeploymentUnit;
 
 public class DeployComputeUnit {
 
@@ -130,4 +131,50 @@ public class DeployComputeUnit {
         throw new RuntimeException("Undeploy timeout — unit still present.");
     }
 
+
+    /**
+     * Utility Method to Processes the commandline args if any and picks up two args 'runFromIDE' and 'jarPath'.
+     * runFromIDE: Can be true or false. Specifies if the example is run from the project source if true. if false then it denotes the example is executed as a JAR
+     * jarPath: If the 'runFromIDE' is false, then we need to explicitly specify the path to the JAR file containing the deployment unit code.
+     * @param args
+     * @return
+     */
+    public static Map<String, Object> processArguments(String[] args) {
+        Map<String, Object> response = new HashMap<>();
+
+        if(args == null){
+            return response;
+        }
+
+        boolean runFromIDE = true;
+        String jarPath = null;
+        for (String arg : args) {
+
+            if(arg.contains("runFromIDE")){
+                String[] splitArgArr = arg.split("=");
+                if(splitArgArr != null && splitArgArr.length == 2) {
+                    runFromIDE = Boolean.parseBoolean(splitArgArr[1]);
+                }else{
+                    throw new RuntimeException(" 'runFromIDE' Argument not specified in the required format ");
+                }
+            }
+
+
+            if(arg.contains("jarPath")){
+                String[] splitArgArr = arg.split("=");
+                if(splitArgArr != null && splitArgArr.length == 2) {
+                    jarPath = splitArgArr[1];
+                }else{
+                    throw new RuntimeException(" 'jarPath' Argument not specified in the required format ");
+                }
+            }
+
+        }
+
+
+        response.put("runFromIDE", runFromIDE);
+        response.put("jarPath", jarPath);
+
+        return response;
+    }
 }
