@@ -17,8 +17,15 @@
 
 package org.apache.ignite.example.compute;
 
+import static java.sql.DriverManager.getConnection;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.client.IgniteClient;
@@ -28,6 +35,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
@@ -50,8 +58,10 @@ import org.apache.ignite.table.Tuple;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ * Example to Run as JAR with CMD args
+ *  * java -cp "..." org.apache.ignite.example.compute.ComputeColocatedExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeColocatedExample {
+public class ComputeColocatedExample extends AbstractDeploymentUnitExample {
     /** Number of accounts to load. */
     private static final int ACCOUNTS_COUNT = 100;
 
@@ -66,7 +76,10 @@ public class ComputeColocatedExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -119,6 +132,16 @@ public class ComputeColocatedExample {
 
             System.out.println("\nConfiguring compute job...");
 
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
+
+
             JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
@@ -146,13 +169,29 @@ public class ComputeColocatedExample {
             System.out.println("\nDropping the table...");
 
             client.sql().executeScript("DROP TABLE accounts");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+            /* Drop table */
+            System.out.println("\nDropping the table...");
+            try (
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE IF EXISTS accounts");
+            }
+
         }
     }
 
     /**
      * Job that prints account info for the provided accountNumber.
      */
-    private static class PrintAccountInfoJob implements ComputeJob<Integer, Void> {
+    public static class PrintAccountInfoJob implements ComputeJob<Integer, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer arg) {

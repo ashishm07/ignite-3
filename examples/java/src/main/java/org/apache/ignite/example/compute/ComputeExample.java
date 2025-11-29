@@ -18,7 +18,11 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
@@ -27,6 +31,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
  * This example demonstrates the usage of the
@@ -47,8 +52,10 @@ import org.apache.ignite.deployment.DeploymentUnit;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ * Example to Run as JAR with CMD args
+ *  * java -cp "..." org.apache.ignite.example.compute.ComputeExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeExample {
+public class ComputeExample extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -60,7 +67,10 @@ public class ComputeExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -80,6 +90,15 @@ public class ComputeExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<String, Void> job = JobDescriptor.builder(WordPrintJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -104,13 +123,21 @@ public class ComputeExample {
 
                 client.compute().execute(jobTarget, job, word);
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
     /**
      * Job that prints provided word.
      */
-    private static class WordPrintJob implements ComputeJob<String, Void> {
+    public static class WordPrintJob implements ComputeJob<String, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {

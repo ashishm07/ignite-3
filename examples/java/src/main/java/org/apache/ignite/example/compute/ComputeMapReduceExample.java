@@ -18,7 +18,11 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +38,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
  * This example demonstrates the usage of the
@@ -54,8 +59,11 @@ import org.apache.ignite.deployment.DeploymentUnit;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ *
+ * Example to Run as JAR with CMD args
+ * java -cp "..." org.apache.ignite.example.compute.ComputeMapReduceExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeMapReduceExample {
+public class ComputeMapReduceExample extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -67,7 +75,10 @@ public class ComputeMapReduceExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -85,6 +96,14 @@ public class ComputeMapReduceExample {
 
             System.out.println("\nConfiguring map reduce task...");
 
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -109,6 +128,14 @@ public class ComputeMapReduceExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nTotal number of characters in the words is '" + result + "'.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
@@ -154,7 +181,7 @@ public class ComputeMapReduceExample {
     /**
      * Job that counts length of the provided word.
      */
-    private static class WordLengthJob implements ComputeJob<String, Integer> {
+    public static class WordLengthJob implements ComputeJob<String, Integer> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String arg) {

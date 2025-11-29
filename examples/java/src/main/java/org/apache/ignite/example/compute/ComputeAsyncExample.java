@@ -18,15 +18,16 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.example.util.DeployComputeUnit.buildJar;
-import static org.apache.ignite.example.util.DeployComputeUnit.deployUnitIfNeeded;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
@@ -35,6 +36,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
  * This example demonstrates the usage of the
@@ -55,17 +57,15 @@ import org.apache.ignite.deployment.DeploymentUnit;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ * Example to Run as JAR with CMD args
+ ** java -cp "..." org.apache.ignite.example.compute.ComputeAsyncExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeAsyncExample {
+public class ComputeAsyncExample extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
-
-    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
-    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
-    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
 
     /**
      * Main method of the example.
@@ -74,8 +74,7 @@ public class ComputeAsyncExample {
      */
     public static void main(String[] args) throws Exception {
 
-        buildJar(CLASSES_DIR, JAR_PATH);
-        deployUnitIfNeeded(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, JAR_PATH);
+        processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -95,7 +94,17 @@ public class ComputeAsyncExample {
             //
             //--------------------------------------------------------------------------------------
 
+
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<String, Integer> job = JobDescriptor.builder(WordLengthJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -146,13 +155,21 @@ public class ComputeAsyncExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nTotal number of characters in the words is '" + sum + "'.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
     /**
      * Job that calculates length of the provided word.
      */
-    private static class WordLengthJob implements ComputeJob<String, Integer> {
+    public static class WordLengthJob implements ComputeJob<String, Integer> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String arg) {

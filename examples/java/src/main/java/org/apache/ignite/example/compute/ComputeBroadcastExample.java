@@ -20,11 +20,12 @@ package org.apache.ignite.example.compute;
 import static java.sql.DriverManager.getConnection;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.BroadcastJobTarget.table;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -34,6 +35,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.table.QualifiedName;
 
 /**
@@ -56,24 +58,26 @@ import org.apache.ignite.table.QualifiedName;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ * <p>
+ * Example to Run as JAR with CMD args
+ * java -cp "..." org.apache.ignite.example.compute.ComputeBroadcastExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeBroadcastExample {
+public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
-    private static final Path projectRoot = Paths.get("").toAbsolutePath(); // This resolves ignite-examples/
-    private static final Path CLASSES_DIR = projectRoot.resolve("examples/java/build/classes/java/main"); // Compiled output
-    private static final Path JAR_PATH = Path.of("build/libs/serialization-example-1.0.0.jar"); // Output jar
-
     /**
      * Main method of the example.
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -86,62 +90,45 @@ public class ComputeBroadcastExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-
-            try (
-                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-
-                stmt.executeUpdate("DROP TABLE IF EXISTS Person");
-
-                // Create table
-                stmt.executeUpdate("CREATE TABLE PERSON ("
-                        + "    ID INT PRIMARY KEY"
-                        + "    FIRST_NAME VARCHAR,"
-                        + "    LAST_NAME VARCHAR,"
-                        + "    AGE INT"
-                        + ");"
-                );
-
-                System.out.println("PERSON table created.");
-
-                // Insert sample data
-                stmt.executeUpdate("INSERT INTO PERSON(ID, FIRST_NAME, LAST_NAME, AGE) VALUES (1, 'John', 'Doe', 30)");
-                stmt.executeUpdate("INSERT INTO PERSON(ID, FIRST_NAME, LAST_NAME, AGE) VALUES (2, 'Jane', 'Smith', 25)");
-                stmt.executeUpdate("INSERT INTO PERSON(ID, FIRST_NAME, LAST_NAME, AGE) VALUES (3, 'Alice', 'Johnson', 40)");
-                stmt.executeUpdate("INSERT INTO PERSON(ID, FIRST_NAME, LAST_NAME, AGE) VALUES (4, 'Bob', 'Brown', 22)");
-
-                System.out.println("Sample data inserted.");
-
-                // Step 2: Create a schema
-                stmt.executeUpdate("CREATE SCHEMA IF NOT EXISTS CUSTOM_SCHEMA");
-
-                // Step 3: Create a table in that schema
-                stmt.executeUpdate(
-                        "CREATE TABLE IF NOT EXISTS CUSTOM_SCHEMA.MY_QUALIFIED_TABLE (" +
-                                "ID INT PRIMARY KEY, " +
-                                "NAME VARCHAR, " +
-                                "AGE INT" +
-                                ")"
-                );
-
-                // Step 4: Insert some sample data
-                stmt.executeUpdate("INSERT INTO CUSTOM_SCHEMA.MY_QUALIFIED_TABLE VALUES (1, 'Alice', 30)");
-                stmt.executeUpdate("INSERT INTO CUSTOM_SCHEMA.MY_QUALIFIED_TABLE VALUES (2, 'Bob', 25)");
-
-                System.out.println("Schema and table created successfully!");
-
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-
             //--------------------------------------------------------------------------------------
             //
             // Configuring compute job.
             //
             //--------------------------------------------------------------------------------------
 
+            try (
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.execute("CREATE SCHEMA IF NOT EXISTS CUSTOM_SCHEMA");
+                stmt.execute("CREATE TABLE IF NOT EXISTS CUSTOM_SCHEMA.MY_QUALIFIED_TABLE (" +
+                        "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+
+                stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC");
+                stmt.execute("CREATE TABLE IF NOT EXISTS PUBLIC.MY_TABLE (" +
+                        "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+
+                stmt.execute("CREATE TABLE IF NOT EXISTS PERSON (" +
+                        "ID INT PRIMARY KEY, FIRST_NAME VARCHAR(100)," +
+                        "LAST_NAME VARCHAR(100), AGE INT)");
+
+                stmt.execute("INSERT INTO PERSON VALUES " +
+                        "(1, 'John', 'Doe', 36)," +
+                        "(2, 'Jane', 'Smith', 35)," +
+                        "(3, 'Robert', 'Johnson', 25)");
+
+            }
+
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -169,13 +156,34 @@ public class ComputeBroadcastExample {
 
             QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
             client.compute().execute(table(customSchemaTable),
-                    JobDescriptor.builder(HelloMessageJob.class).build(), null
+                    JobDescriptor.builder(HelloMessageJob.class)
+                            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                            .build(), null
             );
 
             QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
             client.compute().execute(table(customSchemaTableName),
-                    JobDescriptor.builder(HelloMessageJob.class).build(), null
+                    JobDescriptor.builder(HelloMessageJob.class)
+                            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                            .build(), null
             );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            // undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+            /* Drop table */
+            System.out.println("\nDropping the table...");
+            try (
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE IF EXISTS Person");
+            }
+
+
         }
     }
 

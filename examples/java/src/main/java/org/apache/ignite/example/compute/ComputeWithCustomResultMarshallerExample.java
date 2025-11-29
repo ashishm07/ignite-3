@@ -18,7 +18,11 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +33,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 
@@ -51,8 +56,11 @@ import org.apache.ignite.marshalling.Marshaller;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ *
+ * Example to Run as JAR with CMD args
+ * java -cp "..." org.apache.ignite.example.compute.ComputeWithCustomResultMarshallerExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeWithCustomResultMarshallerExample {
+public class ComputeWithCustomResultMarshallerExample  extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -64,7 +72,10 @@ public class ComputeWithCustomResultMarshallerExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -84,6 +95,15 @@ public class ComputeWithCustomResultMarshallerExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<String, WordInfoResult> job = JobDescriptor.builder(WordInfoJob.class)
                     .resultMarshaller(new WordInfoResultMarshaller())
@@ -118,6 +138,14 @@ public class ComputeWithCustomResultMarshallerExample {
 
             for (WordInfoResult result : results)
                 System.out.println("The length of the word '" + result.word + "'" + " is " + result.length + ".");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 

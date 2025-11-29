@@ -18,7 +18,11 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -29,6 +33,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 
@@ -51,10 +56,13 @@ import org.apache.ignite.lang.CancellationToken;
  *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ *
+ * Example to Run as JAR with CMD args
+ * java -cp "..." org.apache.ignite.example.compute.ComputeCancellationExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeCancellationExample {
+public class ComputeCancellationExample  extends AbstractDeploymentUnitExample {
     /** Deployment unit name. */
-    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit11";
+    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
@@ -64,7 +72,10 @@ public class ComputeCancellationExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -84,6 +95,15 @@ public class ComputeCancellationExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
             JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -124,13 +144,21 @@ public class ComputeCancellationExample {
             } catch (CompletionException ex) {
                 System.out.println("\nThe compute job was cancelled: " + ex.getMessage());
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
     /**
      * The job to interrupt.
      */
-    private static class InfiniteJob implements ComputeJob<Object, Void> {
+    public static class InfiniteJob implements ComputeJob<Object, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object arg) {

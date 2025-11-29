@@ -19,7 +19,11 @@ package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployUnit;
+import static org.apache.ignite.example.util.DeployComputeUnit.deploymentExists;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
@@ -29,9 +33,11 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
- * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle failures.
+ * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle
+ * failures.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  *
@@ -48,20 +54,32 @@ import org.apache.ignite.deployment.DeploymentUnit;
  *          --path=IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
+ * <p>
+ * Example to Run as JAR with CMD args
+ *  * java -cp "..." org.apache.ignite.example.compute.ComputeJobStateExample runFromIDE=false jarPath="..\ignite-examples.jar"
  */
-public class ComputeJobStateExample {
+public class ComputeJobStateExample extends AbstractDeploymentUnitExample {
+
+    /** Deployment unit name. */
+    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
+
+    /** Deployment unit version. */
+    private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
     /**
      * Main method of the example.
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
+
+        processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
-        //--------------------------------------------------------------------------------------
+        //--------------------- -----------------------------------------------------------------
 
         System.out.println("\nConnecting to server...");
 
@@ -77,10 +95,20 @@ public class ComputeJobStateExample {
 
             System.out.println("\nConfiguring compute job...");
 
-            CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
-                    JobDescriptor.builder(WordPrintJob.class).units(new DeploymentUnit("computeExampleUnit","1.0.0")).build(), null
-            );
+            // 1) Check if deployment unit already exists
+            if (deploymentExists(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)) {
+                System.out.println("Deployment unit already exists. Skip deploy.");
+            } else {
+                System.out.println("Deployment unit not found. Deploying...");
+                deployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
+                System.out.println(" Deployment completed " + DEPLOYMENT_UNIT_NAME + ".");
+            }
 
+            CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
+                    JobDescriptor.builder(WordPrintJob.class)
+                            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                            .build(), null
+            );
 
             execution.get().stateAsync().thenApply(state -> {
                 if (state.status() == FAILED) {
@@ -88,13 +116,25 @@ public class ComputeJobStateExample {
                 }
                 return null;
             });
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+
         }
     }
 
     /**
      * Job that prints provided word.
      */
-    private static class WordPrintJob implements ComputeJob<String, Void> {
+    public static class WordPrintJob implements ComputeJob<String, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
